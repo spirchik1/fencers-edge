@@ -5,6 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes, viewport-fit=cover, shrink-to-fit=no">
   <title>Fencer's Edge · Тренировка фехтовальщика</title>
   <style>
+    <link rel="manifest" href="manifest.json">
+<script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('service-worker.js');
+  }
+</script>
     * { margin:0; padding:0; box-sizing:border-box; }
     body {
       background: #0b0c10;
