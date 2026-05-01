@@ -1,0 +1,816 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes, viewport-fit=cover, shrink-to-fit=no">
+  <title>Fencer's Edge · Тренировка фехтовальщика</title>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body {
+      background: #0b0c10;
+      font-family: 'Segoe UI', Roboto, system-ui, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      padding: 8px;
+    }
+    .app {
+      width: 100%;
+      max-width: 620px;
+      background: rgba(18, 20, 28, 0.95);
+      backdrop-filter: blur(28px);
+      border-radius: 44px;
+      padding: 18px 14px 24px;
+      box-shadow: 0 30px 55px rgba(0,0,0,0.85), inset 0 1px 1px rgba(255,255,255,0.15);
+      border: 1px solid rgba(255,255,255,0.08);
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      min-height: 92vh;
+      position: relative;
+      overflow: hidden;
+    }
+    h1, h2, h3 { color: #f0e6d2; text-align: center; font-weight: 400; }
+    .screen { display: none; flex: 1; flex-direction: column; gap: 14px; }
+    .screen.active { display: flex; }
+    .games-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(135px, 1fr));
+      gap: 12px;
+      overflow-y: auto;
+      max-height: 70vh;
+      padding: 4px 2px;
+    }
+    .game-card {
+      background: rgba(255,255,255,0.05);
+      backdrop-filter: blur(14px);
+      border-radius: 28px;
+      padding: 15px 8px;
+      text-align: center;
+      color: #ddd;
+      border: 1px solid rgba(255,255,255,0.1);
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 7px;
+      font-size: 13px;
+      font-weight: 500;
+    }
+    .game-card:active { background: rgba(212,163,115,0.3); transform: scale(0.96); }
+    .game-emoji { font-size: 34px; filter: drop-shadow(0 6px 10px black); }
+    button {
+      background: #d4a373;
+      border: none;
+      color: #0e0e0e;
+      font-weight: bold;
+      padding: 14px 20px;
+      border-radius: 40px;
+      font-size: 16px;
+      cursor: pointer;
+      transition: 0.2s;
+      letter-spacing: 0.5px;
+      box-shadow: 0 8px 18px rgba(0,0,0,0.5);
+      touch-action: manipulation;
+      margin: 4px;
+    }
+    button:active { transform: scale(0.95); background: #b8865a; }
+    .stats-row {
+      display: flex; flex-wrap: wrap; justify-content: space-between;
+      color: #ccc; background: rgba(0,0,0,0.4); border-radius: 60px;
+      padding: 12px 18px; font-weight: 500;
+    }
+    .grid-5x5 {
+      display: grid; gap: 6px; aspect-ratio: 1 / 1; width: 100%;
+    }
+    .cell {
+      background: #2a2c3a; border-radius: 14px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: clamp(18px, 5vw, 26px); font-weight: 700; color: white;
+      cursor: pointer; transition: 0.15s; user-select: none;
+      aspect-ratio: 1 / 1;
+    }
+    .cell.done { background: #4f6d5c; filter: brightness(0.8); pointer-events: none; }
+    .defence-btn {
+      background: #3a3c4c; color: white; font-size: 26px;
+      width: 70px; height: 70px; border-radius: 30px;
+    }
+    @media (max-width: 480px) {
+      .games-grid { grid-template-columns: repeat(2,1fr); }
+      .defence-btn { width: 60px; height: 60px; font-size: 22px; }
+    }
+    /* Splash overlay */
+    .splash-overlay {
+      position: fixed; top:0; left:0; width:100%; height:100%;
+      background: #0b0c10; display:flex; flex-direction:column;
+      align-items:center; justify-content:center; z-index:999;
+      transition: opacity 0.5s; color: #d4a373; font-size: 34px;
+      font-weight: 600; gap: 20px;
+    }
+    .splash-overlay.hidden { opacity:0; pointer-events: none; }
+    .spinner {
+      width: 40px; height: 40px; border: 4px solid rgba(212,163,115,0.3);
+      border-top-color: #d4a373; border-radius: 50%; animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+<div class="app" id="appRoot">
+  <!-- Загрузка -->
+  <div class="splash-overlay" id="splash">
+    <div class="spinner"></div>
+    <span>⚔️ Fencer's Edge</span>
+  </div>
+
+  <!-- Экраны -->
+  <div id="gameListScreen" class="screen">
+    <h1>⚔️ Fencer's Edge</h1>
+    <div class="games-grid" id="gamesContainer"></div>
+  </div>
+
+  <div id="gameMenuScreen" class="screen">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <button id="backToListBtn" style="background:#3a3c4c;">← Назад</button>
+      <h2 id="menuTitle"></h2>
+      <div></div>
+    </div>
+    <div id="menuDescription" style="color:#ccc; background:rgba(0,0,0,0.3); border-radius:24px; padding:16px;"></div>
+    <div id="menuSettings" style="margin:8px 0;"></div>
+    <button id="startGameBtn" style="font-size:20px;">▶ Начать тренировку</button>
+  </div>
+
+  <div id="gamePlayScreen" class="screen">
+    <div id="gameHeader" style="display:flex; justify-content:space-between; align-items:center;">
+      <button id="exitGameBtn" style="background:#3a3c4c;">✕ Выйти</button>
+      <span id="gameTitlePlay" style="color:#d4a373; font-weight:600;"></span>
+      <div></div>
+    </div>
+    <div id="gameContainer" style="flex:1; display:flex; flex-direction:column; gap:12px;"></div>
+  </div>
+
+  <!-- Оверлеи внутри приложения -->
+  <div id="countdownOverlay" style="display:none; position:fixed; top:0;left:0;width:100%;height:100%; background:rgba(0,0,0,0.85); align-items:center; justify-content:center; z-index:200;">
+    <div id="countdownNumber" style="font-size: 100px; font-weight: 700; color: #d4a373; text-shadow: 0 0 40px #d4a373;">3</div>
+  </div>
+  <div id="resultOverlay" style="display:none; position:fixed; top:0;left:0;width:100%;height:100%; background:rgba(0,0,0,0.8); align-items:center; justify-content:center; z-index:200;">
+    <div id="resultContent" style="background:#1b1d2a; border-radius:36px; padding:28px 20px; width:85%; max-width:330px; text-align:center; color:#f0e6d2; border:1px solid #d4a373;"></div>
+  </div>
+</div>
+
+<script>
+  (function() {
+    // Splash screen
+    const splash = document.getElementById('splash');
+    window.addEventListener('load', () => {
+      setTimeout(() => { splash.classList.add('hidden'); }, 1500);
+    });
+
+    // Состояние
+    let currentGameId = null;
+    let activeTimers = [];
+    let gameRunning = false;
+
+    const listScreen = document.getElementById('gameListScreen');
+    const menuScreen = document.getElementById('gameMenuScreen');
+    const playScreen = document.getElementById('gamePlayScreen');
+    const countdownOverlay = document.getElementById('countdownOverlay');
+    const countdownNumber = document.getElementById('countdownNumber');
+    const resultOverlay = document.getElementById('resultOverlay');
+    const resultContent = document.getElementById('resultContent');
+    const gameContainer = document.getElementById('gameContainer');
+    const gameTitlePlay = document.getElementById('gameTitlePlay');
+
+    function showScreen(screen) {
+      [listScreen, menuScreen, playScreen].forEach(s => s.classList.remove('active'));
+      screen.classList.add('active');
+      window.scrollTo(0,0);
+    }
+
+    function clearAllTimers() {
+      activeTimers.forEach(id => clearTimeout(id));
+      activeTimers.forEach(id => clearInterval(id));
+      activeTimers = [];
+      gameRunning = false;
+    }
+
+    // Результат с кнопками "Попробовать снова" и "В меню"
+    function showResult(title, message) {
+      resultContent.innerHTML = `
+        <h3 style="color:#d4a373;">${title}</h3>
+        <p style="margin:16px 0;">${message}</p>
+        <button id="resultRetryBtn" style="margin-right:8px;">🔄 Попробовать снова</button>
+        <button id="resultMenuBtn">📋 В меню</button>
+      `;
+      resultOverlay.style.display = 'flex';
+      document.getElementById('resultRetryBtn').addEventListener('click', () => {
+        resultOverlay.style.display = 'none';
+        if (currentGameId) startCountdown(() => launchGame(currentGameId));
+      });
+      document.getElementById('resultMenuBtn').addEventListener('click', () => {
+        resultOverlay.style.display = 'none';
+        clearAllTimers();
+        showScreen(listScreen);
+      });
+    }
+
+    // Список игр (все работают, фехтовальная тематика)
+    const games = [
+      { id: 'schulte', name: 'Таблица Шульте', emoji: '🔢', desc: 'Находите числа по порядку. Развивает периферическое зрение.' },
+      { id: 'fencing', name: 'Фехтовальный блок', emoji: '🤺', desc: 'Противник атакует сектор 3,4,5. Поставьте правильный блок.' },
+      { id: 'logic', name: 'Логическая последовательность', emoji: '🧠', desc: 'Продолжите числовой ряд. Анализ и предвидение.' },
+      { id: 'reactionTap', name: 'Тап по сигналу', emoji: '🟢', desc: 'Нажмите, когда экран станет зелёным. Чистая реакция.' },
+      { id: 'colorStroop', name: 'Цветовой конфликт', emoji: '🎨', desc: 'Нажимайте цвет шрифта, игнорируя слово. Концентрация.' },
+      { id: 'simon', name: 'Саймон', emoji: '🔴🟡', desc: 'Повторите последовательность цветов. Рабочая память.' },
+      { id: 'speedMath', name: 'Быстрая математика', emoji: '➕➖', desc: 'Решите пример на время. Скорость решений.' },
+      { id: 'peripheral', name: 'Периферическое зрение', emoji: '👁️', desc: 'Реагируйте на сигналы по краям. Важно в защите.' },
+      { id: 'anticipation', name: 'Тайминг удара', emoji: '⏱️', desc: 'Остановите ползунок в центре. Чувство момента.' },
+      { id: 'dualNback', name: 'Двойной N-назад', emoji: '🔄', desc: 'Запомните позицию 2 шага назад. Рабочая память.' },
+      { id: 'focusSwitch', name: 'Переключение фокуса', emoji: '🔀', desc: 'Меняйте правила ответа. Адаптивность.' },
+      { id: 'footworkReact', name: 'Реакция на движение', emoji: '👣', desc: 'Нажимайте влево/вправо при сигнале. Работа ног.' },  // замена лабиринта
+      { id: 'visualSearch', name: 'Поиск цели', emoji: '🔍', desc: 'Найдите нужный символ среди помех.' },
+      { id: 'trackingTargets', name: 'Слежение за целями', emoji: '🎯', desc: 'Следите за мигающей точкой и нажмите её.' },
+      { id: 'reactionSound', name: 'Звуковая реакция', emoji: '🔔', desc: 'Реагируйте на звуковой сигнал как можно быстрее.' },
+      { id: 'dividedAttention', name: 'Разделение внимания', emoji: '👥', desc: 'Два задания одновременно. Многозадачность.' },
+      { id: 'speedReading', name: 'Быстрое чтение', emoji: '📖', desc: 'Узнайте слово за долю секунды.' },
+      { id: 'patternRec', name: 'Распознавание паттернов', emoji: '🕵️', desc: 'Найдите закономерность в символах.' },
+      { id: 'whackMole', name: 'Удар по цели', emoji: '🐹', desc: 'Бейте появляющиеся круги. Реакция и точность.' },
+      { id: 'colorReflex', name: 'Цветной рефлекс', emoji: '🌈', desc: 'Нажмите, когда цвет совпадёт с эталоном.' }
+    ];
+
+    function renderGameList() {
+      const container = document.getElementById('gamesContainer');
+      container.innerHTML = '';
+      games.forEach(game => {
+        const card = document.createElement('div');
+        card.className = 'game-card';
+        card.innerHTML = `<span class="game-emoji">${game.emoji}</span><span>${game.name}</span>`;
+        card.addEventListener('click', () => openGameMenu(game.id));
+        container.appendChild(card);
+      });
+    }
+
+    function openGameMenu(gameId) {
+      currentGameId = gameId;
+      const game = games.find(g => g.id === gameId);
+      if (!game) return;
+      document.getElementById('menuTitle').textContent = game.name;
+      document.getElementById('menuDescription').innerHTML = `<p style="font-size:15px;">${game.desc}</p>`;
+      const settingsDiv = document.getElementById('menuSettings');
+      settingsDiv.innerHTML = '';
+      if (gameId === 'schulte') {
+        settingsDiv.innerHTML = `
+          <label style="color:#ccc;">Размер: 
+            <select id="schulteSizeSelect" style="padding:6px; border-radius:12px;">
+              <option value="3">3x3</option><option value="4">4x4</option>
+              <option value="5" selected>5x5</option><option value="6">6x6</option><option value="7">7x7</option>
+            </select>
+          </label>`;
+      }
+      showScreen(menuScreen);
+    }
+
+    document.getElementById('backToListBtn').addEventListener('click', () => {
+      clearAllTimers();
+      showScreen(listScreen);
+    });
+
+    document.getElementById('startGameBtn').addEventListener('click', () => {
+      if (currentGameId) startCountdown(() => launchGame(currentGameId));
+    });
+
+    function startCountdown(callback) {
+      countdownOverlay.style.display = 'flex';
+      let counter = 3;
+      countdownNumber.textContent = counter;
+      const interval = setInterval(() => {
+        counter--;
+        if (counter > 0) {
+          countdownNumber.textContent = counter;
+        } else if (counter === 0) {
+          countdownNumber.textContent = 'СТАРТ!';
+        } else {
+          clearInterval(interval);
+          countdownOverlay.style.display = 'none';
+          if (callback) callback();
+        }
+      }, 900);
+    }
+
+    function launchGame(gameId) {
+      clearAllTimers();
+      showScreen(playScreen);
+      gameContainer.innerHTML = '';
+      const game = games.find(g => g.id === gameId);
+      gameTitlePlay.textContent = game?.name || '';
+      switch (gameId) {
+        case 'schulte': initSchulte(); break;
+        case 'fencing': initFencing(); break;
+        case 'logic': initLogic(); break;
+        case 'reactionTap': initReactionTap(); break;
+        case 'colorStroop': initStroop(); break;
+        case 'simon': initSimon(); break;
+        case 'speedMath': initSpeedMath(); break;
+        case 'peripheral': initPeripheral(); break;
+        case 'anticipation': initAnticipation(); break;
+        case 'dualNback': initDualNback(); break;
+        case 'focusSwitch': initFocusSwitch(); break;
+        case 'footworkReact': initFootworkReact(); break;
+        case 'visualSearch': initVisualSearch(); break;
+        case 'trackingTargets': initTrackingTargets(); break;
+        case 'reactionSound': initReactionSound(); break;
+        case 'dividedAttention': initDividedAttention(); break;
+        case 'speedReading': initSpeedReading(); break;
+        case 'patternRec': initPatternRec(); break;
+        case 'whackMole': initWhackMole(); break;
+        case 'colorReflex': initColorReflex(); break;
+        default: gameContainer.innerHTML = '<p style="color:#aaa;">Игра не найдена</p>';
+      }
+    }
+
+    document.getElementById('exitGameBtn').addEventListener('click', () => {
+      clearAllTimers();
+      showScreen(listScreen);
+    });
+
+    // ============ Игровые реализации (все рабочие) ============
+    function initSchulte() {
+      const sizeSelect = document.getElementById('schulteSizeSelect');
+      const size = sizeSelect ? parseInt(sizeSelect.value) : 5;
+      const total = size * size;
+      let numbers = Array.from({length: total}, (_, i) => i+1);
+      for (let i = numbers.length-1; i>0; i--) {
+        const j = Math.floor(Math.random()*(i+1));
+        [numbers[i], numbers[j]] = [numbers[j], numbers[i]];
+      }
+      let current = 1, startTime = null, timerInterval = null;
+      gameContainer.innerHTML = `
+        <div class="stats-row"><span>⏱️ <span id="schulteTimer">0.0</span> с</span><span>🔢 ${size}x${size}</span></div>
+        <div class="grid-5x5" id="schulteGrid" style="grid-template-columns: repeat(${size}, 1fr);"></div>`;
+      const grid = document.getElementById('schulteGrid');
+      const timerSpan = document.getElementById('schulteTimer');
+      numbers.forEach(num => {
+        const cell = document.createElement('div');
+        cell.className = 'cell'; cell.textContent = num;
+        cell.addEventListener('click', () => {
+          if (cell.classList.contains('done') || num !== current) return;
+          if (!startTime) {
+            startTime = performance.now();
+            timerInterval = setInterval(() => { timerSpan.textContent = ((performance.now()-startTime)/1000).toFixed(1); }, 80);
+          }
+          cell.classList.add('done');
+          current++;
+          if (current > total) {
+            clearInterval(timerInterval);
+            const time = ((performance.now()-startTime)/1000).toFixed(2);
+            showResult('Таблица Шульте', `Время: ${time} сек.`);
+          }
+        });
+        grid.appendChild(cell);
+      });
+    }
+
+    function initFencing() {
+      let hits=0, misses=0, active=false, attackTime=null, currentSector=null;
+      gameContainer.innerHTML = `
+        <div class="stats-row"><span>✅ <span id="hit">0</span></span><span>❌ <span id="miss">0</span></span><span>⚡ <span id="react">-</span> мс</span></div>
+        <div style="text-align:center; font-size:80px; font-weight:bold; color:#d4a373;" id="sectorDisplay">🤺</div>
+        <div style="display:flex; gap:12px; justify-content:center;">
+          <button class="defence-btn" data-block="3">🛡️3</button>
+          <button class="defence-btn" data-block="4">🛡️4</button>
+          <button class="defence-btn" data-block="5">🛡️5</button>
+        </div>
+        <button id="fenceStartRound">⚡ Атака!</button>`;
+      const sectorDisplay = document.getElementById('sectorDisplay');
+      const hitSpan = document.getElementById('hit'), missSpan = document.getElementById('miss'), reactSpan = document.getElementById('react');
+      function attackRandom() {
+        if (!gameRunning) return;
+        const sectors = [3,4,5];
+        currentSector = sectors[Math.floor(Math.random()*sectors.length)];
+        sectorDisplay.textContent = currentSector;
+        attackTime = performance.now();
+        active = true;
+        document.getElementById('fenceStartRound').style.display = 'none';
+      }
+      document.getElementById('fenceStartRound').addEventListener('click', ()=>{ gameRunning=true; attackRandom(); });
+      document.querySelectorAll('.defence-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          if (!active || !gameRunning) return;
+          const block = parseInt(e.currentTarget.dataset.block);
+          const react = Math.round(performance.now()-attackTime);
+          reactSpan.textContent = react;
+          if (block === currentSector) { hits++; hitSpan.textContent = hits; }
+          else { misses++; missSpan.textContent = misses; }
+          active = false;
+          sectorDisplay.textContent = '🤺';
+          document.getElementById('fenceStartRound').style.display = 'block';
+        });
+      });
+    }
+
+    function initLogic() {
+      let score=0, level=1, correct=null;
+      function newPuzzle() {
+        const start = Math.floor(Math.random()*12)+2, step = Math.floor(Math.random()*5)+1;
+        const seq = Array.from({length:4}, (_,i)=>start+step*i);
+        correct = seq[3]+step;
+        document.getElementById('seqDisplay').textContent = seq.join(', ')+', ?';
+        const opts = new Set([correct]);
+        while(opts.size<4) opts.add(correct + (Math.floor(Math.random()*11)-5));
+        const btns = document.getElementById('logicOptions');
+        btns.innerHTML = '';
+        [...opts].sort(()=>Math.random()-0.5).forEach(v => {
+          const b = document.createElement('button'); b.textContent=v;
+          b.addEventListener('click', ()=>{
+            if(v===correct){ score+=10; level++; document.getElementById('logicScore').textContent=score; document.getElementById('logicLevel').textContent=level; newPuzzle(); }
+            else alert('Неверно, попробуйте ещё');
+          });
+          btns.appendChild(b);
+        });
+      }
+      gameContainer.innerHTML = `
+        <div class="stats-row"><span>⭐ <span id="logicScore">0</span></span><span>📈 Уровень <span id="logicLevel">1</span></span></div>
+        <div id="seqDisplay" style="background:#1e1f2e; border-radius:20px; padding:20px; text-align:center; font-size:24px; color:#f0e6d2;">2,4,6,8,?</div>
+        <div id="logicOptions" style="display:flex; flex-wrap:wrap; justify-content:center;"></div>`;
+      newPuzzle();
+    }
+
+    function initReactionTap() {
+      let state='wait', startTime, trials=3, results=[], current=0;
+      gameContainer.innerHTML = `<div style="height:50vh; background:#2a2c3a; border-radius:30px; display:flex; align-items:center; justify-content:center; font-size:28px;" id="tapZone">Ждите зелёный</div>
+      <div class="stats-row"><span>Раунд <span id="trialNum">1/3</span></span><span>Среднее: <span id="avgReact">-</span> мс</span></div>`;
+      const zone = document.getElementById('tapZone');
+      function nextTrial() {
+        if (current>=trials) { showResult('Тап по сигналу', `Средняя реакция: ${Math.round(results.reduce((a,b)=>a+b,0)/results.length)} мс`); return; }
+        state='wait'; zone.textContent='Ждите зелёный'; zone.style.background='#2a2c3a';
+        const delay = 1000 + Math.random()*2000;
+        const timer = setTimeout(() => {
+          if (state!=='wait') return;
+          state='ready'; zone.textContent='НАЖМИ!'; zone.style.background='#4caf50'; startTime=performance.now();
+        }, delay);
+        activeTimers.push(timer);
+        document.getElementById('trialNum').textContent = `${current+1}/3`;
+      }
+      zone.addEventListener('click', ()=>{
+        if (state==='ready') {
+          const rt = Math.round(performance.now()-startTime);
+          results.push(rt); document.getElementById('avgReact').textContent = Math.round(results.reduce((a,b)=>a+b,0)/results.length);
+          current++; nextTrial();
+        }
+      });
+      gameRunning=true; nextTrial();
+    }
+
+    function initStroop() {
+      let score=0, round=0, maxRounds=10, correctColor=null;
+      const colors = ['красный','синий','зелёный','жёлтый'];
+      const colorCodes = { 'красный':'#e74c3c', 'синий':'#3498db', 'зелёный':'#2ecc71', 'жёлтый':'#f1c40f' };
+      function next() {
+        if (round>=maxRounds) { showResult('Цветовой конфликт', `Верно: ${score}/${maxRounds}`); return; }
+        const word = colors[Math.floor(Math.random()*4)];
+        let color; do { color = colors[Math.floor(Math.random()*4)]; } while (color===word);
+        correctColor = color;
+        document.getElementById('stroopWord').textContent = word.toUpperCase();
+        document.getElementById('stroopWord').style.color = colorCodes[color];
+        round++;
+        document.getElementById('stroopRound').textContent = `${round}/${maxRounds}`;
+      }
+      gameContainer.innerHTML = `
+        <div id="stroopWord" style="font-size:42px; text-align:center; font-weight:bold; margin:30px;"></div>
+        <div class="stats-row"><span>Раунд <span id="stroopRound">0/10</span></span><span>✅ <span id="stroopScore">0</span></span></div>
+        <div style="display:flex; gap:8px; justify-content:center;" id="colorBtns"></div>`;
+      const btnsDiv = document.getElementById('colorBtns');
+      colors.forEach(c => {
+        const b = document.createElement('button'); b.textContent = c; b.style.background = colorCodes[c];
+        b.addEventListener('click', ()=>{ if(c===correctColor) { score++; document.getElementById('stroopScore').textContent=score; } next(); });
+        btnsDiv.appendChild(b);
+      });
+      next();
+    }
+
+    function initSimon() {
+      let sequence=[], playerSeq=[], level=1;
+      const colors = ['#e74c3c','#3498db','#2ecc71','#f1c40f'];
+      gameContainer.innerHTML = `<div style="display:flex; gap:10px; justify-content:center;" id="simonBtns"></div><div class="stats-row"><span>Уровень <span id="simLevel">1</span></span></div>`;
+      const btnsDiv = document.getElementById('simonBtns');
+      colors.forEach((c,i)=>{ const b=document.createElement('button'); b.style.background=c; b.style.width='70px'; b.style.height='70px'; b.dataset.idx=i; btnsDiv.appendChild(b); });
+      function playSeq() {
+        let i=0; playerSeq=[];
+        const interval = setInterval(()=>{
+          if(i>=sequence.length){ clearInterval(interval); return; }
+          btnsDiv.children[sequence[i]].style.transform='scale(1.2)'; setTimeout(()=>btnsDiv.children[sequence[i]].style.transform='',300);
+          i++;
+        },800);
+      }
+      function addStep(){ sequence.push(Math.floor(Math.random()*4)); level++; document.getElementById('simLevel').textContent=level; playSeq(); }
+      btnsDiv.addEventListener('click',(e)=>{
+        if(e.target.tagName!=='BUTTON') return;
+        const idx=parseInt(e.target.dataset.idx); playerSeq.push(idx);
+        if(playerSeq[playerSeq.length-1]!==sequence[playerSeq.length-1]){ showResult('Ошибка',`Дошли до ${level} уровня`); return; }
+        if(playerSeq.length===sequence.length) setTimeout(addStep,1000);
+      });
+      addStep();
+    }
+
+    function initSpeedMath() {
+      let score=0, q=0, maxQ=10, correctAns=0;
+      function newQ() {
+        if (q>=maxQ) { showResult('Математика',`Верно ${score}/${maxQ}`); return; }
+        const a=Math.floor(Math.random()*20)+5, b=Math.floor(Math.random()*15)+1, op=Math.random()>0.5?'+':'-';
+        correctAns = op==='+'? a+b : a-b;
+        document.getElementById('mathExpr').textContent = `${a} ${op} ${b} = ?`;
+        const opts=new Set([correctAns]); while(opts.size<4) opts.add(correctAns+(Math.floor(Math.random()*11)-5));
+        const btns=document.getElementById('mathOpts'); btns.innerHTML='';
+        [...opts].sort(()=>Math.random()-0.5).forEach(v=>{
+          const b=document.createElement('button'); b.textContent=v;
+          b.addEventListener('click',()=>{ if(v===correctAns)score++; q++; newQ(); });
+          btns.appendChild(b);
+        });
+      }
+      gameContainer.innerHTML=`<div id="mathExpr" style="font-size:36px; text-align:center;"></div><div id="mathOpts" style="display:flex; gap:8px; justify-content:center;"></div>`;
+      newQ();
+    }
+
+    function initPeripheral() {
+      gameContainer.innerHTML = `<div style="position:relative; height:60vh; background:#1e1f2e; border-radius:30px;" id="periField"><div style="position:absolute; top:50%; left:50%; width:20px; height:20px; background:white; border-radius:50%; transform:translate(-50%,-50%);"></div></div><p style="color:white; text-align:center;">Нажмите стрелки при появлении точки в углу (на ПК клавиши, на телефоне кнопки ниже)</p>
+      <div style="display:flex; justify-content:center; gap:10px; flex-wrap:wrap;" id="mobileArrows">
+        <button data-dir="ArrowUp">⬆️</button><button data-dir="ArrowLeft">⬅️</button><button data-dir="ArrowDown">⬇️</button><button data-dir="ArrowRight">➡️</button>
+      </div>`;
+      let trial=0, max=6, times=[];
+      const field = document.getElementById('periField');
+      const arrows = document.getElementById('mobileArrows');
+      function showStimulus() {
+        if (trial>=max) { showResult('Периферия',`Средняя реакция: ${Math.round(times.reduce((a,b)=>a+b,0)/times.length)} мс`); return; }
+        const corners = ['top-left','top-right','bottom-left','bottom-right'];
+        const pos = corners[Math.floor(Math.random()*4)];
+        const dot = document.createElement('div'); dot.style.position='absolute'; dot.style.width='30px'; dot.style.height='30px'; dot.style.background='#d4a373'; dot.style.borderRadius='50%';
+        if(pos.includes('top')) dot.style.top='10px'; else dot.style.bottom='10px';
+        if(pos.includes('left')) dot.style.left='10px'; else dot.style.right='10px';
+        field.appendChild(dot);
+        const start = performance.now();
+        function handler(dir) {
+          let correct=false;
+          if(pos==='top-left' && dir==='ArrowUp') correct=true;
+          else if(pos==='top-right' && dir==='ArrowRight') correct=true;
+          else if(pos==='bottom-left' && dir==='ArrowLeft') correct=true;
+          else if(pos==='bottom-right' && dir==='ArrowDown') correct=true;
+          if(correct) { times.push(performance.now()-start); dot.remove(); window.removeEventListener('keydown', keyHandler); arrows.removeEventListener('click', arrowHandler); trial++; showStimulus(); }
+        }
+        function keyHandler(e) { handler(e.key); }
+        function arrowHandler(e) { if(e.target.tagName==='BUTTON') handler(e.target.dataset.dir); }
+        window.addEventListener('keydown', keyHandler);
+        arrows.addEventListener('click', arrowHandler);
+        activeTimers.push(setTimeout(()=>{ dot.remove(); window.removeEventListener('keydown', keyHandler); arrows.removeEventListener('click', arrowHandler); trial++; showStimulus(); },2000));
+      }
+      showStimulus();
+    }
+
+    function initAnticipation() {
+      gameContainer.innerHTML = `<div style="position:relative; height:40px; background:#333; border-radius:20px; margin-top:40px;"><div id="slider" style="position:absolute; width:20px; height:40px; background:#d4a373; border-radius:10px; left:0;"></div></div><button id="stopSlider">СТОП</button>`;
+      const slider = document.getElementById('slider');
+      let pos=0, speed=2, interval=setInterval(()=>{ pos+=speed; if(pos>100) pos=0; slider.style.left=pos+'%'; },20);
+      activeTimers.push(interval);
+      document.getElementById('stopSlider').addEventListener('click', ()=>{
+        clearInterval(interval);
+        const dist=Math.abs(pos-50);
+        const msg = dist<5?'Идеально!':dist<15?'Хорошо':'Мимо';
+        showResult('Тайминг',`${msg} (отклонение ${dist.toFixed(0)}%)`);
+      });
+    }
+
+    function initDualNback() {
+      let positions=[], nBack=2, round=0, maxRounds=10, correct=0;
+      gameContainer.innerHTML = `<div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; width:150px; margin:auto;" id="nbackGrid"></div><div class="stats-row"><span>Раунд <span id="nbRound">0/10</span></span><span>✅ <span id="nbScore">0</span></span></div><button id="nbMatchBtn">Совпало!</button>`;
+      const grid=document.getElementById('nbackGrid');
+      for(let i=0;i<4;i++){ const c=document.createElement('div'); c.style.background='#2a2c3a'; c.style.height='60px'; c.style.borderRadius='12px'; grid.appendChild(c); }
+      function stim() {
+        if(round>=maxRounds){ showResult('N-назад',`Точность: ${correct}/${maxRounds}`); return; }
+        const pos=Math.floor(Math.random()*4); positions.push(pos);
+        grid.children.forEach((c,i)=>c.style.background=i===pos?'#d4a373':'#2a2c3a');
+        document.getElementById('nbMatchBtn').onclick=()=>{
+          if(positions.length>nBack && positions[positions.length-1-nBack]===pos) correct++;
+          round++; document.getElementById('nbScore').textContent=correct; document.getElementById('nbRound').textContent=`${round}/10`; stim();
+        };
+      }
+      stim();
+    }
+
+    function initFocusSwitch() {
+      let score=0, trials=0, max=12, rule='parity';
+      gameContainer.innerHTML=`<div id="focusStimulus" style="font-size:48px; text-align:center;"></div><div style="display:flex; gap:12px; justify-content:center;"><button id="focusYes">Да</button><button id="focusNo">Нет</button></div><div class="stats-row"><span>✅ <span id="focusScore">0</span></span></div>`;
+      function next(){
+        if(trials>=max){ showResult('Переключение',`Верно ${score}/${max}`); return; }
+        rule=Math.random()>0.5?'parity':'color';
+        const num=Math.floor(Math.random()*20)+1, color=Math.random()>0.5?'красный':'синий';
+        document.getElementById('focusStimulus').innerHTML=`<span style="color:${color==='красный'?'#e74c3c':'#3498db'}">${num}</span>`;
+        const answer = rule==='parity'? (num%2===0?'yes':'no') : (color==='красный'?'yes':'no');
+        document.getElementById('focusYes').onclick=()=>{ if(answer==='yes')score++; trials++; document.getElementById('focusScore').textContent=score; next(); };
+        document.getElementById('focusNo').onclick=()=>{ if(answer==='no')score++; trials++; document.getElementById('focusScore').textContent=score; next(); };
+      }
+      next();
+    }
+
+    function initFootworkReact() {
+      let score=0, rounds=0, maxRounds=8;
+      gameContainer.innerHTML=`<div style="text-align:center; font-size:60px;" id="footworkSignal">👣</div><div style="display:flex; gap:20px; justify-content:center;"><button id="fwLeft">⬅️ Влево</button><button id="fwRight">➡️ Вправо</button></div><div class="stats-row"><span>✅ <span id="fwScore">0</span></span></div>`;
+      function next(){
+        if(rounds>=maxRounds){ showResult('Реакция на движение',`Попаданий: ${score}/${maxRounds}`); return; }
+        const dir = Math.random()>0.5?'left':'right';
+        document.getElementById('footworkSignal').textContent = dir==='left'?'⬅️':'➡️';
+        document.getElementById('fwLeft').onclick = ()=>{ if(dir==='left') score++; rounds++; document.getElementById('fwScore').textContent=score; next(); };
+        document.getElementById('fwRight').onclick = ()=>{ if(dir==='right') score++; rounds++; document.getElementById('fwScore').textContent=score; next(); };
+      }
+      next();
+    }
+
+    function initVisualSearch() {
+      const target = '🛡️';
+      const distractors = ['⚔️','🗡️','🔰','⛨','🛡️'];
+      let correct=0, trials=0, max=6;
+      gameContainer.innerHTML=`<div id="searchGrid" style="display:grid; grid-template-columns:repeat(4,1fr); gap:8px;"></div><div class="stats-row"><span>Цель: 🛡️</span><span>✅ <span id="vsScore">0</span></span></div>`;
+      function newTrial(){
+        if(trials>=max){ showResult('Поиск цели',`Найдено: ${correct}/${max}`); return; }
+        const grid=document.getElementById('searchGrid'); grid.innerHTML='';
+        const items = Array(16).fill(distractors[Math.floor(Math.random()*4)]);
+        const targetIndex = Math.floor(Math.random()*16); items[targetIndex]=target;
+        items.forEach(item=>{
+          const d=document.createElement('div'); d.textContent=item; d.style.fontSize='32px'; d.style.textAlign='center';
+          d.addEventListener('click',()=>{ if(item===target){ correct++; trials++; document.getElementById('vsScore').textContent=correct; newTrial(); } });
+          grid.appendChild(d);
+        });
+        trials++;
+      }
+      newTrial();
+    }
+
+    function initTrackingTargets() {
+      let round=0, max=5, correct=0, targetIdx;
+      gameContainer.innerHTML=`<div style="display:flex; gap:20px; justify-content:center; font-size:40px;" id="trackDots"></div><div class="stats-row"><span>Раунд <span id="trackRound">0/5</span></span></div>`;
+      function startRound(){
+        if(round>=max){ showResult('Слежение',`Угадано: ${correct}/${max}`); return; }
+        const dots=document.getElementById('trackDots'); dots.innerHTML='';
+        const count=3; targetIdx=Math.floor(Math.random()*count);
+        for(let i=0;i<count;i++){ const d=document.createElement('span'); d.textContent='⚪'; d.dataset.idx=i; dots.appendChild(d); }
+        dots.children[targetIdx].textContent='🔴';
+        setTimeout(()=>{
+          for(let c of dots.children) c.textContent='⚪';
+          setTimeout(()=>{
+            dots.querySelectorAll('span').forEach(s=>s.style.cursor='pointer');
+            dots.addEventListener('click', function handler(e){
+              if(e.target.tagName==='SPAN'){
+                if(parseInt(e.target.dataset.idx)===targetIdx) correct++;
+                round++; document.getElementById('trackRound').textContent=`${round}/5`;
+                dots.removeEventListener('click',handler);
+                startRound();
+              }
+            });
+          },500);
+        },1000);
+      }
+      startRound();
+    }
+
+    function initReactionSound() {
+      let trials=0, max=5, times=[];
+      gameContainer.innerHTML=`<p style="color:white; text-align:center;">Нажмите кнопку, как услышите звук</p><button id="soundReady">🔊 Готов</button><div class="stats-row"><span>Среднее: <span id="soundAvg">-</span> мс</span></div>`;
+      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      function playBeep(){
+        const osc=audioCtx.createOscillator(), gain=audioCtx.createGain();
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.frequency.value=800; gain.gain.value=0.3;
+        osc.start(); osc.stop(audioCtx.currentTime+0.2);
+      }
+      document.getElementById('soundReady').addEventListener('click', function startTrial(){
+        if(trials>=max){ showResult('Звуковая реакция',`Средняя: ${Math.round(times.reduce((a,b)=>a+b,0)/times.length)} мс`); return; }
+        this.style.display='none';
+        const delay=800+Math.random()*2000;
+        setTimeout(()=>{
+          const start=performance.now(); playBeep();
+          const btn=document.createElement('button'); btn.textContent='НАЖМИ!'; btn.style.position='fixed'; btn.style.bottom='40px'; btn.style.left='50%'; btn.style.transform='translateX(-50%)';
+          document.body.appendChild(btn);
+          btn.addEventListener('click',()=>{
+            times.push(performance.now()-start); trials++; btn.remove();
+            document.getElementById('soundAvg').textContent = Math.round(times.reduce((a,b)=>a+b,0)/times.length);
+            document.getElementById('soundReady').style.display='block';
+          },{once:true});
+        },delay);
+      });
+    }
+
+    function initDividedAttention() {
+      let score=0, round=0, max=10;
+      gameContainer.innerHTML=`<div style="display:flex; justify-content:space-around;"><div id="leftTask" style="font-size:32px;"></div><div id="rightTask" style="font-size:32px;"></div></div><div style="display:flex; gap:12px; justify-content:center; margin-top:20px;"><button id="daBoth">Оба верны</button><button id="daLeft">Лево верно</button><button id="daRight">Право верно</button><button id="daNone">Оба неверны</button></div><div class="stats-row"><span>✅ <span id="daScore">0</span></span></div>`;
+      function next(){
+        if(round>=max){ showResult('Разделение внимания',`Верно: ${score}/${max}`); return; }
+        const leftNum=Math.floor(Math.random()*10)+1, leftEven=leftNum%2===0;
+        const colors=['красный','синий']; const rightColor=colors[Math.floor(Math.random()*2)];
+        document.getElementById('leftTask').innerHTML=`<span>${leftNum}</span>`;
+        document.getElementById('rightTask').innerHTML=`<span style="color:${rightColor==='красный'?'#e74c3c':'#3498db'}">цвет</span>`;
+        const leftTrue=leftEven, rightTrue=rightColor==='красный';
+        document.getElementById('daBoth').onclick=()=>{ if(leftTrue&&rightTrue)score++; round++; document.getElementById('daScore').textContent=score; next(); };
+        document.getElementById('daLeft').onclick=()=>{ if(leftTrue&&!rightTrue)score++; round++; document.getElementById('daScore').textContent=score; next(); };
+        document.getElementById('daRight').onclick=()=>{ if(!leftTrue&&rightTrue)score++; round++; document.getElementById('daScore').textContent=score; next(); };
+        document.getElementById('daNone').onclick=()=>{ if(!leftTrue&&!rightTrue)score++; round++; document.getElementById('daScore').textContent=score; next(); };
+      }
+      next();
+    }
+
+    function initSpeedReading() {
+      const words = ['укол','защита','атака','фехтование','рапира','шпага','сабля','дистанция'];
+      let correct=0, trials=0, max=6;
+      gameContainer.innerHTML=`<div id="flashWord" style="font-size:40px; text-align:center; height:60px;"></div><div id="wordOptions" style="display:flex; flex-wrap:wrap; gap:8px; justify-content:center;"></div><div class="stats-row"><span>✅ <span id="srScore">0</span></span></div>`;
+      function showWord(){
+        if(trials>=max){ showResult('Быстрое чтение',`Угадано: ${correct}/${max}`); return; }
+        const target = words[Math.floor(Math.random()*words.length)];
+        const opts = new Set([target]); while(opts.size<3) opts.add(words[Math.floor(Math.random()*words.length)]);
+        const optsArr = [...opts].sort(()=>Math.random()-0.5);
+        document.getElementById('flashWord').textContent=target;
+        setTimeout(()=>{ document.getElementById('flashWord').textContent=''; },200);
+        const btns=document.getElementById('wordOptions'); btns.innerHTML='';
+        optsArr.forEach(w=>{
+          const b=document.createElement('button'); b.textContent=w;
+          b.addEventListener('click',()=>{ if(w===target)correct++; trials++; document.getElementById('srScore').textContent=correct; showWord(); });
+          btns.appendChild(b);
+        });
+      }
+      showWord();
+    }
+
+    function initPatternRec() {
+      const patterns = ['⬆️⬇️⬆️⬇️','🔴🔵🔴🔵','🟩🟨🟩🟨'];
+      let correct=0, trials=0, max=8;
+      gameContainer.innerHTML=`<div id="patternDisplay" style="font-size:36px; letter-spacing:8px; text-align:center;"></div><div style="display:flex; gap:10px; justify-content:center;" id="patternOpts"></div><div class="stats-row"><span>✅ <span id="prScore">0</span></span></div>`;
+      function next(){
+        if(trials>=max){ showResult('Паттерны',`Верно: ${correct}/${max}`); return; }
+        const base = patterns[Math.floor(Math.random()*patterns.length)];
+        const seq = base.split(''); const correctNext = seq[seq.length-1];
+        document.getElementById('patternDisplay').textContent = seq.slice(0,-1).join('')+' ?';
+        const opts = new Set([correctNext, '⬆️','🔴','🟩']); while(opts.size<3) opts.add(['⬇️','🔵','🟨'][Math.floor(Math.random()*3)]);
+        const btns=document.getElementById('patternOpts'); btns.innerHTML='';
+        [...opts].sort(()=>Math.random()-0.5).forEach(sym=>{
+          const b=document.createElement('button'); b.textContent=sym;
+          b.addEventListener('click',()=>{ if(sym===correctNext)correct++; trials++; document.getElementById('prScore').textContent=correct; next(); });
+          btns.appendChild(b);
+        });
+      }
+      next();
+    }
+
+    function initWhackMole() {
+      let score=0, timeLeft=10, timerInterval;
+      gameContainer.innerHTML=`<div class="stats-row"><span>Очки: <span id="wmScore">0</span></span><span>⏱️ <span id="wmTimer">10</span> с</span></div><div style="display:grid; grid-template-columns:repeat(3,1fr); gap:8px;" id="wmGrid"></div>`;
+      const grid=document.getElementById('wmGrid');
+      for(let i=0;i<9;i++){ const c=document.createElement('div'); c.style.background='#2a2c3a'; c.style.height='70px'; c.style.borderRadius='16px'; c.dataset.active='0'; grid.appendChild(c); }
+      function showMole(){
+        if(!gameRunning) return;
+        const cells = grid.children;
+        for(let c of cells) c.style.background='#2a2c3a'; c.dataset.active='0';
+        const idx=Math.floor(Math.random()*9); cells[idx].style.background='#d4a373'; cells[idx].dataset.active='1';
+        setTimeout(showMole, 800+Math.random()*600);
+      }
+      grid.addEventListener('click',(e)=>{
+        if(e.target.dataset.active==='1'){ score++; document.getElementById('wmScore').textContent=score; e.target.style.background='#2a2c3a'; e.target.dataset.active='0'; }
+      });
+      timerInterval=setInterval(()=>{
+        timeLeft--; document.getElementById('wmTimer').textContent=timeLeft;
+        if(timeLeft<=0){ clearInterval(timerInterval); gameRunning=false; showResult('Удар по цели',`Очки: ${score}`); }
+      },1000);
+      gameRunning=true; showMole();
+      activeTimers.push(timerInterval);
+    }
+
+    function initColorReflex() {
+      let correct=0, total=0, maxRounds=10, targetColor;
+      const colors=['красный','синий','зелёный'];
+      const codes={'красный':'#e74c3c','синий':'#3498db','зелёный':'#2ecc71'};
+      gameContainer.innerHTML=`<div id="targetColorBox" style="width:80px; height:80px; border-radius:20px; margin:auto;"></div><div id="colorStream" style="text-align:center; font-size:30px; height:50px;"></div><button id="crTap">Совпало!</button><div class="stats-row"><span>✅ <span id="crScore">0</span>/10</span></div>`;
+      function stream(){
+        if(total>=maxRounds){ showResult('Цветной рефлекс',`Точность: ${correct}/${maxRounds}`); return; }
+        targetColor=colors[Math.floor(Math.random()*3)];
+        document.getElementById('targetColorBox').style.background=codes[targetColor];
+        let count=0, maxShots=6+Math.floor(Math.random()*5);
+        function showNext(){
+          if(count>=maxShots){ total++; stream(); return; }
+          const col=colors[Math.floor(Math.random()*3)];
+          document.getElementById('colorStream').textContent=col.toUpperCase();
+          document.getElementById('colorStream').style.color=codes[col];
+          count++;
+          setTimeout(showNext, 600+Math.random()*400);
+        }
+        document.getElementById('crTap').onclick=()=>{
+          if(document.getElementById('colorStream').textContent.toLowerCase()===targetColor){ correct++; document.getElementById('crScore').textContent=correct; }
+        };
+        showNext();
+      }
+      stream();
+    }
+
+    // Инициализация
+    renderGameList();
+    showScreen(listScreen);
+  })();
+</script>
+</body>
+</html>
