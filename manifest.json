@@ -1,0 +1,15 @@
+{
+  "name": "Fencer's Edge",
+  "short_name": "FencersEdge",
+  "start_url": "/fencers-edge/",
+  "display": "standalone",
+  "background_color": "#0b0c10",
+  "theme_color": "#d4a373",
+  "icons": [
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
