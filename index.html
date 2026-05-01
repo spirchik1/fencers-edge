@@ -5,12 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes, viewport-fit=cover, shrink-to-fit=no">
   <title>Fencer's Edge · Тренировка фехтовальщика</title>
   <style>
-    <link rel="manifest" href="manifest.json">
-<script>
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('service-worker.js');
-  }
-</script>
     * { margin:0; padding:0; box-sizing:border-box; }
     body {
       background: #0b0c10;
@@ -122,6 +116,13 @@
     }
     @keyframes spin { to { transform: rotate(360deg); } }
   </style>
+  <!-- Вот здесь правильно: сначала манифест, потом сервис-воркер -->
+  <link rel="manifest" href="manifest.json">
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('service-worker.js');
+    }
+  </script>
 </head>
 <body>
 <div class="app" id="appRoot">
@@ -235,7 +236,7 @@
       { id: 'anticipation', name: 'Тайминг удара', emoji: '⏱️', desc: 'Остановите ползунок в центре. Чувство момента.' },
       { id: 'dualNback', name: 'Двойной N-назад', emoji: '🔄', desc: 'Запомните позицию 2 шага назад. Рабочая память.' },
       { id: 'focusSwitch', name: 'Переключение фокуса', emoji: '🔀', desc: 'Меняйте правила ответа. Адаптивность.' },
-      { id: 'footworkReact', name: 'Реакция на движение', emoji: '👣', desc: 'Нажимайте влево/вправо при сигнале. Работа ног.' },  // замена лабиринта
+      { id: 'footworkReact', name: 'Реакция на движение', emoji: '👣', desc: 'Нажимайте влево/вправо при сигнале. Работа ног.' },
       { id: 'visualSearch', name: 'Поиск цели', emoji: '🔍', desc: 'Найдите нужный символ среди помех.' },
       { id: 'trackingTargets', name: 'Слежение за целями', emoji: '🎯', desc: 'Следите за мигающей точкой и нажмите её.' },
       { id: 'reactionSound', name: 'Звуковая реакция', emoji: '🔔', desc: 'Реагируйте на звуковой сигнал как можно быстрее.' },
